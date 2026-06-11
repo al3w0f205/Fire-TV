@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Main TV layout — "Liquid Glass" UI/UX
+    
+    Layer stack (bottom to top):
+    1. Full-bleed blurred album art background
+    2. Animated gradient overlay (very subtle fluid color tint)
+    3. Bottom vignette gradient
+    4. Content: centered album art + compact glass control panel
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootContainer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_primary"
+    tools:context=".MainActivity">
+
+    <!-- Layer 1: Immersive edge-to-edge blurred album art background -->
+    <ImageView
+        android:id="@+id/ivBackgroundBlur"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_album_placeholder"
+        android:contentDescription="@null" />
+
+    <!-- Layer 2: Animated gradient overlay (very subtle tint) -->
+    <com.fireairplay.receiver.ui.AnimatedGradientView
+        android:id="@+id/animatedGradient"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Layer 3: Top vignette for depth -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_gravity="top"
+        android:background="@drawable/top_gradient_overlay" />
+
+    <!-- Layer 3b: Bottom vignette for panel contrast -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="350dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bottom_gradient_overlay" />
+
+    <!-- Layer 4: Main content -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/contentLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="40dp">
+
+        <!-- Connection status indicator (top-left) -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:text="@string/status_waiting"
+            android:textColor="#99FFFFFF"
+            android:textSize="15sp"
+            android:shadowColor="#80000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- AirPlay branding (top-right) -->
+        <TextView
+            android:id="@+id/tvBranding"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-light"
+            android:text="AirPlay"
+            android:textColor="#99FFFFFF"
+            android:textSize="15sp"
+            android:letterSpacing="0.15"
+            android:shadowColor="#80000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Floating shadow beneath album art -->
+        <View
+            android:id="@+id/albumShadow"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:background="@drawable/album_shadow"
+            android:alpha="0.6"
+            app:layout_constraintBottom_toBottomOf="@id/cardAlbumArt"
+            app:layout_constraintEnd_toEndOf="@id/cardAlbumArt"
+            app:layout_constraintStart_toStartOf="@id/cardAlbumArt"
+            android:translationY="20dp" />
+
+        <!-- Album art — Large, centered, with soft rounded corners -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardAlbumArt"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="24dp"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:layout_constraintBottom_toTopOf="@id/glassPanel"
+            app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvStatus"
+            app:layout_constraintVertical_bias="0.42"
+            app:layout_constraintWidth_max="380dp">
+
+            <ImageView
+                android:id="@+id/ivAlbumArt"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_album_placeholder"
+                android:contentDescription="Album artwork" />
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Frosted Liquid-Glass Control Panel (compact) -->
+        <com.fireairplay.receiver.ui.GlassPanelLayout
+            android:id="@+id/glassPanel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:paddingStart="36dp"
+            android:paddingEnd="36dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="18dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintWidth_max="680dp">
+
+            <!-- Inner content of the glass panel -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+
+                <!-- Track title -->
+                <TextView
+                    android:id="@+id/tvTrackTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:text="@string/track_title_placeholder"
+                    android:textColor="@color/white"
+                    android:textSize="24sp"
+                    android:letterSpacing="0.02"
+                    android:textStyle="bold"
+                    android:shadowColor="#40000000"
+                    android:shadowDx="0"
+                    android:shadowDy="1"
+                    android:shadowRadius="3"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <!-- Artist name -->
+                <TextView
+                    android:id="@+id/tvArtistName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:text="@string/track_artist_placeholder"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="16sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvTrackTitle" />
+
+                <!-- Album name (subtle, below artist) -->
+                <TextView
+                    android:id="@+id/tvAlbumName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textColor="#66FFFFFF"
+                    android:textSize="13sp"
+                    android:visibility="gone"
+                    tools:text="Album Name"
+                    tools:visibility="visible"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvArtistName" />
+
+                <!-- Progress bar — thin liquid style -->
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="0dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="14dp"
+                    android:max="1000"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/progress_bar_liquid"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvAlbumName" />
+
+                <!-- Time elapsed (left) -->
+                <TextView
+                    android:id="@+id/tvTimeElapsed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="sans-serif"
+                    android:text="0:00"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="12sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/progressBar" />
+
+                <!-- Time remaining (right) -->
+                <TextView
+                    android:id="@+id/tvTimeRemaining"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="sans-serif"
+                    android:text="-0:00"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="12sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/progressBar" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </com.fireairplay.receiver.ui.GlassPanelLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</FrameLayout>

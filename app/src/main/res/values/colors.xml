@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base colors -->
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Base dark palette -->
+    <color name="background_primary">#FF0A0A0F</color>
+    <color name="background_secondary">#FF121218</color>
+    <color name="surface">#FF1A1A24</color>
+    <color name="surface_elevated">#FF24243A</color>
+
+    <!-- Text colors -->
+    <color name="text_primary">#FFF0F0F5</color>
+    <color name="text_secondary">#FFB0B0C0</color>
+    <color name="text_tertiary">#FF707088</color>
+
+    <!-- Accent colors -->
+    <color name="accent_primary">#FFDA5BFF</color>
+    <color name="accent_secondary">#FF5B8CFF</color>
+    <color name="accent_warm">#FFFF6B6B</color>
+
+    <!-- Progress bar -->
+    <color name="progress_track">#33FFFFFF</color>
+    <color name="progress_indicator">#FFDA5BFF</color>
+
+    <!-- Gradient fallback colors (used when no album art is available) -->
+    <color name="gradient_default_1">#FF1A0030</color>
+    <color name="gradient_default_2">#FF000A20</color>
+    <color name="gradient_default_3">#FF0D0020</color>
+
+    <!-- Transparent overlay for readability -->
+    <color name="overlay_dark">#80000000</color>
+
+    <!-- Liquid Glass panel -->
+    <color name="glass_fill">#22FFFFFF</color>
+    <color name="glass_border">#30FFFFFF</color>
+    <color name="glass_highlight">#18FFFFFF</color>
+
+    <!-- Default animated gradient colors (when no album art) -->
+    <color name="gradient_liquid_1">#FFE91E8C</color>
+    <color name="gradient_liquid_2">#FFB91C4F</color>
+    <color name="gradient_liquid_3">#FF7B2FBE</color>
+</resources>

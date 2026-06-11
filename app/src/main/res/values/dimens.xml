@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Album art -->
+    <dimen name="album_art_size">320dp</dimen>
+    <dimen name="album_art_corner_radius">24dp</dimen>
+    <dimen name="album_art_elevation">16dp</dimen>
+
+    <!-- Typography for TV (readable from the couch) -->
+    <dimen name="text_title_size">36sp</dimen>
+    <dimen name="text_artist_size">22sp</dimen>
+    <dimen name="text_status_size">16sp</dimen>
+    <dimen name="text_time_size">14sp</dimen>
+
+    <!-- Spacing -->
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">16dp</dimen>
+    <dimen name="spacing_lg">24dp</dimen>
+    <dimen name="spacing_xl">32dp</dimen>
+    <dimen name="spacing_xxl">48dp</dimen>
+
+    <!-- Progress bar -->
+    <dimen name="progress_bar_height">5dp</dimen>
+    <dimen name="progress_bar_width">480dp</dimen>
+
+    <!-- Glass panel -->
+    <dimen name="glass_corner_radius">36dp</dimen>
+    <dimen name="glass_panel_max_width">900dp</dimen>
+    <dimen name="glass_panel_padding_h">48dp</dimen>
+    <dimen name="glass_panel_padding_v">32dp</dimen>
+</resources>

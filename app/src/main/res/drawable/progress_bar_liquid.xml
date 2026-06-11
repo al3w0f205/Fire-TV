@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Custom progress bar drawable — thin rounded pill.
+    Track: very subtle semi-transparent white.
+    Progress: clean white with slight transparency.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Track (background) -->
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <solid android:color="#20FFFFFF" />
+            <corners android:radius="2dp" />
+            <size android:height="4dp" />
+        </shape>
+    </item>
+
+    <!-- Progress indicator -->
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <solid android:color="#CCFFFFFF" />
+                <corners android:radius="2dp" />
+                <size android:height="4dp" />
+            </shape>
+        </clip>
+    </item>
+
+</layer-list>

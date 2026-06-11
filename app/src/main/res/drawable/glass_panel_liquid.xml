@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Liquid Glass panel background — premium frosted glass with
+    multiple refraction layers, inner glow, and specular edge.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Layer 1: Soft outer glow / ambient shadow -->
+    <item
+        android:left="-2dp"
+        android:top="-2dp"
+        android:right="-2dp"
+        android:bottom="-2dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#0CFFFFFF" />
+            <corners android:radius="30dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 2: Main glass body — very subtle tinted fill -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#18FFFFFF" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 3: Top-half refraction gradient (light bends at the top) -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#22FFFFFF"
+                android:centerColor="#0AFFFFFF"
+                android:centerY="0.3"
+                android:endColor="#00FFFFFF"
+                android:type="linear" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 4: Left-to-right subtle sheen (simulates curved glass catching light) -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="0"
+                android:startColor="#08FFFFFF"
+                android:centerColor="#00FFFFFF"
+                android:endColor="#06FFFFFF"
+                android:type="linear" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 5: Primary border — crisp specular edge -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <corners android:radius="28dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#38FFFFFF" />
+        </shape>
+    </item>
+
+    <!-- Layer 6: Inner border — secondary depth (inset for double-edge effect) -->
+    <item
+        android:left="1.5dp"
+        android:top="1.5dp"
+        android:right="1.5dp"
+        android:bottom="1.5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <corners android:radius="27dp" />
+            <stroke
+                android:width="0.5dp"
+                android:color="#12FFFFFF" />
+        </shape>
+    </item>
+
+</layer-list>

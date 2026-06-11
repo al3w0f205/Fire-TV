@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Soft oval shadow beneath the album art card for a floating 3D effect.
+    Larger and more diffuse than typical elevation shadows.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:gradientRadius="160dp"
+        android:startColor="#60000000"
+        android:endColor="#00000000"
+        android:type="radial" />
+    <size
+        android:width="300dp"
+        android:height="60dp" />
+</shape>

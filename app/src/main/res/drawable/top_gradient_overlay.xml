@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Top vignette gradient overlay — subtle darkening at the top
+    for cinematic depth and status text readability.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:startColor="#50000000"
+        android:endColor="#00000000"
+        android:type="linear" />
+</shape>

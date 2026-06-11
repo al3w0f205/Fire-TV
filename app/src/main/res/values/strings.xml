@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">FireAirPlay</string>
+    <string name="status_waiting">Esperando conexión AirPlay…</string>
+    <string name="status_connecting">Conectando…</string>
+    <string name="status_streaming">Reproduciendo</string>
+    <string name="status_paused">En pausa</string>
+    <string name="track_title_placeholder">Sin reproducción</string>
+    <string name="track_artist_placeholder">Abre AirPlay en tu dispositivo Apple</string>
+    <string name="notification_channel_name">Audio AirPlay</string>
+    <string name="notification_channel_description">Servicio de recepción de audio AirPlay</string>
+    <string name="notification_title">FireAirPlay activo</string>
+    <string name="notification_text">Recibiendo audio vía AirPlay</string>
+</resources>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder album art icon: a stylized vinyl record -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="320dp"
+    android:viewportWidth="320"
+    android:viewportHeight="320">
+
+    <!-- Outer circle (vinyl) -->
+    <path
+        android:fillColor="#FF24243A"
+        android:pathData="M160,160m-140,0a140,140 0,1 1,280 0a140,140 0,1 1,-280 0" />
+
+    <!-- Groove rings -->
+    <path
+        android:fillColor="#FF1A1A24"
+        android:pathData="M160,160m-120,0a120,120 0,1 1,240 0a120,120 0,1 1,-240 0" />
+    <path
+        android:fillColor="#FF24243A"
+        android:pathData="M160,160m-100,0a100,100 0,1 1,200 0a100,100 0,1 1,-200 0" />
+    <path
+        android:fillColor="#FF1A1A24"
+        android:pathData="M160,160m-80,0a80,80 0,1 1,160 0a80,80 0,1 1,-160 0" />
+
+    <!-- Label area -->
+    <path
+        android:fillColor="#FF3A2060"
+        android:pathData="M160,160m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0" />
+
+    <!-- Center hole -->
+    <path
+        android:fillColor="#FF0A0A0F"
+        android:pathData="M160,160m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+
+    <!-- Music note icon on label -->
+    <path
+        android:fillColor="#FFDA5BFF"
+        android:pathData="M150,145 L150,170 C148,168 144,168 142,170 C139,173 139,178 142,180 C145,182 150,181 150,176 L150,155 L168,150 L168,165 C166,163 162,163 160,165 C157,168 157,173 160,175 C163,177 168,176 168,171 L168,145 Z" />
+
+</vector>
