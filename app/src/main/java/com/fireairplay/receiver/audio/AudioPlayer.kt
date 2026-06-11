@@ -38,6 +38,7 @@ class AudioPlayer {
     private var playbackJob: Job? = null
     private val pcmChannel = Channel<ShortArray>(BUFFER_CAPACITY)
     private val isPlaying = AtomicBoolean(false)
+    private val isPrimed = AtomicBoolean(false)
     private var scope: CoroutineScope? = null
 
     /**
@@ -87,15 +88,38 @@ class AudioPlayer {
             return
         }
 
-        track.play()
+        isPrimed.set(false)
 
         scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         playbackJob = scope?.launch {
             Log.i(TAG, "Playback coroutine started")
             try {
+                var lastWriteTime = 0L
+                var primedCount = 0
                 while (isActive && isPlaying.get()) {
                     val pcmData = pcmChannel.receive()
+
+                    val now = System.currentTimeMillis()
+                    if (isPrimed.get() && lastWriteTime != 0L && now - lastWriteTime > 150) {
+                        track.pause()
+                        track.flush()
+                        isPrimed.set(false)
+                        primedCount = 0
+                        Log.i(TAG, "Audio underrun detected (gap of ${now - lastWriteTime}ms), re-buffering...")
+                    }
+
                     track.write(pcmData, 0, pcmData.size)
+                    lastWriteTime = System.currentTimeMillis()
+
+                    if (!isPrimed.get()) {
+                        primedCount++
+                        if (primedCount >= 6) {
+                            track.play()
+                            isPrimed.set(true)
+                            primedCount = 0
+                            Log.i(TAG, "Audio primed and playing")
+                        }
+                    }
                 }
             } catch (e: CancellationException) {
                 Log.i(TAG, "Playback coroutine cancelled")
@@ -155,10 +179,8 @@ class AudioPlayer {
         audioTrack?.let { track ->
             track.pause()
             track.flush()
-            if (isPlaying.get()) {
-                track.play()
-            }
         }
+        isPrimed.set(false)
         Log.i(TAG, "Audio flushed")
     }
 
@@ -167,6 +189,7 @@ class AudioPlayer {
      */
     fun stop() {
         isPlaying.set(false)
+        isPrimed.set(false)
         playbackJob?.cancel()
         playbackJob = null
         scope?.cancel()

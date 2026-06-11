@@ -605,12 +605,12 @@ class RaopServer(
                                     packetBuffer[seqNo % 256] = decryptedData
                                 }
 
-                                // Force advance if gap is too large to prevent indefinite stalls (32 packets ≈ 250ms)
-                                if (distance > 32) {
-                                    while (packetBuffer[nextPlaySeqNo % 256] == null && nextPlaySeqNo != seqNo) {
-                                        nextPlaySeqNo = (nextPlaySeqNo + 1) and 0xFFFF
-                                    }
-                                }
+                                 // Force advance if gap is too large to prevent indefinite stalls (3 packets ≈ 24ms)
+                                 if (distance > 3) {
+                                     while (packetBuffer[nextPlaySeqNo % 256] == null && nextPlaySeqNo != seqNo) {
+                                         nextPlaySeqNo = (nextPlaySeqNo + 1) and 0xFFFF
+                                     }
+                                 }
 
                                 // Play all contiguous available packets sequentially
                                 while (packetBuffer[nextPlaySeqNo % 256] != null) {
