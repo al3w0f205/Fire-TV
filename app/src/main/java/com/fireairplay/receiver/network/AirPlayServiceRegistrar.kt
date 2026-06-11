@@ -63,7 +63,9 @@ class AirPlayServiceRegistrar(private val context: Context) {
         acquireMulticastLock()
 
         val macAddress = getMacAddress()
-        val instanceName = "${macAddress}@${DEVICE_NAME}"
+        val prefs = context.getSharedPreferences("fire_airplay_prefs", Context.MODE_PRIVATE)
+        val customName = prefs.getString("device_name", DEVICE_NAME) ?: DEVICE_NAME
+        val instanceName = "${macAddress}@${customName}"
 
         val serviceInfo = NsdServiceInfo().apply {
             serviceName = instanceName

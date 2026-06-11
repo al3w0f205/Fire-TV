@@ -3,7 +3,32 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    
+    <!-- Outer TV Screen/Frame -->
+    <path
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M34,36 h40 c2.2,0 4,1.8 4,4 v20 c0,2.2 -1.8,4 -4,4 h-14 l-4,-6 h-4 l-4,6 h-14 c-2.2,0 -4,-1.8 -4,-4 v-20 c0,-2.2 1.8,-4 4,-4 z" />
+
+    <!-- Triangle Base -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M31,63.928c0,0 6.4,-2.3 13,-2.3c7.2,0 10.5,1.15 10.5,1.15l0,-45.783l-23.5,0l0,46.933Z" />
+        android:pathData="M48,70 h12 l-6,-8 z" />
+
+    <!-- Inner Wave -->
+    <path
+        android:strokeWidth="3"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:pathData="M44,28 C49,23 59,23 64,28" />
+
+    <!-- Outer Wave -->
+    <path
+        android:strokeWidth="3"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:pathData="M36,20 C44,11 64,11 72,20" />
+
 </vector>

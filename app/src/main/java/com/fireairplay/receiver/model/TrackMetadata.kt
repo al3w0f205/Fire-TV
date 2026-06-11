@@ -21,7 +21,13 @@ data class TrackMetadata(
     /** Current playback position in seconds (from progress SET_PARAMETER) */
     val positionSeconds: Double = 0.0,
     /** Whether audio is currently being streamed */
-    val isPlaying: Boolean = false
+    val isPlaying: Boolean = false,
+    /** Audio sample rate in Hz (e.g., 44100) */
+    val sampleRate: Int = 44100,
+    /** Audio sample size in bits (e.g., 16) */
+    val sampleSize: Int = 16,
+    /** Number of audio channels (e.g., 2 for Stereo) */
+    val numChannels: Int = 2
 ) {
     /**
      * Returns a human-readable time string (e.g., "3:45") from seconds.

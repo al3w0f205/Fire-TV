@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_primary"
+    android:padding="40dp">
+
+    <!-- Central Settings Card (using GlassPanelLayout to matching theme) -->
+    <com.fireairplay.receiver.ui.GlassPanelLayout
+        android:layout_width="450dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="28dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <!-- Title -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="Ajustes de FireAirPlay"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.01"
+                android:layout_marginBottom="24dp" />
+
+            <!-- Input Label -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif"
+                android:text="Nombre del Receptor AirPlay"
+                android:textColor="#B3FFFFFF"
+                android:textSize="13sp"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Custom text input -->
+            <EditText
+                android:id="@+id/etDeviceName"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/settings_input_background"
+                android:paddingHorizontal="16dp"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:inputType="text"
+                android:maxLines="1"
+                android:imeOptions="actionDone"
+                android:focusable="true"
+                android:clickable="true"
+                android:layout_marginBottom="24dp" />
+
+            <!-- Save Button -->
+            <Button
+                android:id="@+id/btnSave"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:background="@drawable/settings_button_background"
+                android:text="Guardar Cambios"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium"
+                android:focusable="true"
+                android:clickable="true" />
+
+        </LinearLayout>
+
+    </com.fireairplay.receiver.ui.GlassPanelLayout>
+
+</FrameLayout>

@@ -30,7 +30,7 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.FireAirPlay"
-        android:banner="@mipmap/ic_launcher">
+        android:banner="@drawable/app_banner">
 
         <activity
             android:name=".MainActivity"
@@ -47,6 +47,14 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Settings Screen -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.FireAirPlay" />
 
         <!-- Foreground service for audio streaming -->
         <service

@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.lifecycle.ViewModelProvider
 import com.fireairplay.receiver.service.AirPlayService
+import com.fireairplay.receiver.ui.SettingsActivity
 import com.fireairplay.receiver.ui.AnimatedGradientView
 import com.fireairplay.receiver.ui.BlurHelper
 import com.fireairplay.receiver.ui.GlassPanelLayout
@@ -44,8 +45,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cardAlbumArt: CardView
     private lateinit var ivAlbumArt: ImageView
 
-    // UI References — Glass panel
-    private lateinit var glassPanel: GlassPanelLayout
+    // UI References — Right panel
+    private lateinit var layoutRightPanel: View
     private lateinit var tvTrackTitle: TextView
     private lateinit var tvArtistName: TextView
     private lateinit var tvAlbumName: TextView
@@ -55,6 +56,13 @@ class MainActivity : AppCompatActivity() {
 
     // UI References — Status
     private lateinit var tvStatus: TextView
+
+    // UI References — Settings
+    private lateinit var btnSettings: View
+
+    // UI References — Quality Badges
+    private lateinit var layoutBadges: View
+    private lateinit var badgeCodec: TextView
 
     // State
     private var isPlayingState = false
@@ -99,8 +107,8 @@ class MainActivity : AppCompatActivity() {
         cardAlbumArt = findViewById(R.id.cardAlbumArt)
         ivAlbumArt = findViewById(R.id.ivAlbumArt)
 
-        // Glass panel & contents
-        glassPanel = findViewById(R.id.glassPanel)
+        // Right Side Panel & contents
+        layoutRightPanel = findViewById(R.id.layoutRightPanel)
         tvTrackTitle = findViewById(R.id.tvTrackTitle)
         tvArtistName = findViewById(R.id.tvArtistName)
         tvAlbumName = findViewById(R.id.tvAlbumName)
@@ -110,6 +118,16 @@ class MainActivity : AppCompatActivity() {
 
         // Status
         tvStatus = findViewById(R.id.tvStatus)
+
+        // Settings
+        btnSettings = findViewById(R.id.btnSettings)
+        btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // Quality Badges
+        layoutBadges = findViewById(R.id.layoutBadges)
+        badgeCodec = findViewById(R.id.badgeCodec)
     }
 
     /**
@@ -121,8 +139,8 @@ class MainActivity : AppCompatActivity() {
         cardAlbumArt.scaleX = 0.8f
         cardAlbumArt.scaleY = 0.8f
 
-        glassPanel.alpha = 0f
-        glassPanel.translationY = 80f
+        layoutRightPanel.alpha = 0f
+        layoutRightPanel.translationY = 80f
     }
 
     /**
@@ -142,8 +160,8 @@ class MainActivity : AppCompatActivity() {
             .setInterpolator(OvershootInterpolator(0.8f))
             .start()
 
-        // Glass panel: slide up + fade in (delayed slightly)
-        glassPanel.animate()
+        // Right side panel: slide up + fade in (delayed slightly)
+        layoutRightPanel.animate()
             .alpha(1f)
             .translationY(0f)
             .setDuration(500)
@@ -199,6 +217,14 @@ class MainActivity : AppCompatActivity() {
             tvTimeElapsed.text = metadata.elapsedFormatted
             tvTimeRemaining.text = metadata.remainingFormatted
 
+            // Update quality badges
+            if (metadata.title.isNotEmpty()) {
+                layoutBadges.visibility = View.VISIBLE
+                badgeCodec.text = "LOSSLESS"
+            } else {
+                layoutBadges.visibility = View.GONE
+            }
+
             // Update play/pause scaling animation (iOS-style album art breathing)
             if (metadata.isPlaying != isPlayingState) {
                 isPlayingState = metadata.isPlaying
@@ -227,9 +253,6 @@ class MainActivity : AppCompatActivity() {
                 // Update the animated gradient colors from album palette
                 animatedGradient.updateColors(bitmap)
 
-                // Update the glass panel's frosted backdrop
-                glassPanel.updateBackdrop(bitmap)
-
                 // Play entrance animation on first artwork
                 playEntranceAnimation()
             } else {
@@ -237,7 +260,6 @@ class MainActivity : AppCompatActivity() {
                 ivBackgroundBlur.setImageResource(R.drawable.ic_album_placeholder)
                 BlurHelper.clearBlur(ivBackgroundBlur)
                 animatedGradient.resetColors()
-                glassPanel.updateBackdrop(null)
             }
         }
     }

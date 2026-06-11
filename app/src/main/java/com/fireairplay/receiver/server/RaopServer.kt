@@ -870,7 +870,10 @@ class RaopServer(
             artwork = currentArtwork,
             durationSeconds = currentDuration,
             positionSeconds = currentPosition,
-            isPlaying = audioPlayer.isCurrentlyPlaying()
+            isPlaying = audioPlayer.isCurrentlyPlaying(),
+            sampleRate = alacDecoder.sampleRate,
+            sampleSize = alacDecoder.sampleSize,
+            numChannels = alacDecoder.numChannels
         )
         onMetadataUpdate?.invoke(metadata)
     }
