@@ -58,7 +58,59 @@
                 android:imeOptions="actionDone"
                 android:focusable="true"
                 android:clickable="true"
-                android:layout_marginBottom="24dp" />
+                android:layout_marginBottom="16dp" />
+
+            <!-- Background Theme Label -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif"
+                android:text="Modo de Fondo (Tema)"
+                android:textColor="#B3FFFFFF"
+                android:textSize="13sp"
+                android:layout_marginBottom="8dp" />
+
+            <!-- RadioGroup for Background Modes -->
+            <RadioGroup
+                android:id="@+id/rgBackgroundMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="24dp">
+
+                <RadioButton
+                    android:id="@+id/rbLiquidGradient"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:text="Gradiente Líquido Dinámico"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:buttonTint="@color/accent_primary"
+                    android:focusable="true"
+                    android:clickable="true" />
+
+                <RadioButton
+                    android:id="@+id/rbBlurredArtwork"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:text="Carátula Borrosa Completa"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:buttonTint="@color/accent_primary"
+                    android:focusable="true"
+                    android:clickable="true" />
+
+                <RadioButton
+                    android:id="@+id/rbPureBlack"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:text="Oscuro OLED Puro"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:buttonTint="@color/accent_primary"
+                    android:focusable="true"
+                    android:clickable="true" />
+            </RadioGroup>
 
             <!-- Save Button -->
             <Button

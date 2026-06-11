@@ -1,8 +1,10 @@
 package com.fireairplay.receiver
 
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -12,6 +14,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.fireairplay.receiver.service.AirPlayService
 import com.fireairplay.receiver.ui.SettingsActivity
@@ -38,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: NowPlayingViewModel
 
     // UI References — Background layers
+    private lateinit var rootContainer: View
     private lateinit var ivBackgroundBlur: ImageView
     private lateinit var animatedGradient: AnimatedGradientView
 
@@ -67,6 +71,71 @@ class MainActivity : AppCompatActivity() {
     // State
     private var isPlayingState = false
     private var hasPlayedEntranceAnimation = false
+
+    // UI References — Screensaver / OLED protection
+    private lateinit var contentLayout: View
+    private lateinit var screensaverOverlay: View
+    private lateinit var screensaverContent: View
+    private lateinit var ivScreensaverArtwork: ImageView
+    private lateinit var tvScreensaverTitle: TextView
+    private lateinit var tvScreensaverArtist: TextView
+
+    // Timers & Protection states
+    private val pixelShiftHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val inactivityHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val screensaverDriftHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private var isScreensaverActive = false
+    private val INACTIVITY_DELAY = 180000L // 3 minutes
+
+    private val pixelShiftRunnable = object : Runnable {
+        override fun run() {
+            if (!isScreensaverActive) {
+                // Generate random shift between -10 and 10 pixels
+                val shiftX = (Math.random() * 20 - 10).toFloat()
+                val shiftY = (Math.random() * 20 - 10).toFloat()
+
+                contentLayout.animate()
+                    .translationX(shiftX)
+                    .translationY(shiftY)
+                    .setDuration(3000)
+                    .setInterpolator(AccelerateDecelerateInterpolator())
+                    .start()
+            }
+            pixelShiftHandler.postDelayed(this, 60000)
+        }
+    }
+
+    private val inactivityRunnable = Runnable {
+        showScreensaver()
+    }
+
+    private val screensaverDriftRunnable = object : Runnable {
+        override fun run() {
+            if (isScreensaverActive) {
+                val parentWidth = screensaverOverlay.width
+                val parentHeight = screensaverOverlay.height
+                val contentWidth = screensaverContent.width
+                val contentHeight = screensaverContent.height
+
+                if (parentWidth > contentWidth && parentHeight > contentHeight) {
+                    val maxX = (parentWidth - contentWidth) / 2
+                    val maxY = (parentHeight - contentHeight) / 2
+
+                    val targetX = (Math.random() * (maxX * 2) - maxX).toFloat()
+                    val targetY = (Math.random() * (maxY * 2) - maxY).toFloat()
+
+                    screensaverContent.animate()
+                        .translationX(targetX)
+                        .translationY(targetY)
+                        .setDuration(12000)
+                        .setInterpolator(AccelerateDecelerateInterpolator())
+                        .start()
+                }
+                screensaverDriftHandler.postDelayed(this, 12000)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,6 +169,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun bindViews() {
         // Background layers
+        rootContainer = findViewById(R.id.rootContainer)
         ivBackgroundBlur = findViewById(R.id.ivBackgroundBlur)
         animatedGradient = findViewById(R.id.animatedGradient)
 
@@ -128,6 +198,14 @@ class MainActivity : AppCompatActivity() {
         // Quality Badges
         layoutBadges = findViewById(R.id.layoutBadges)
         badgeCodec = findViewById(R.id.badgeCodec)
+
+        // Screensaver / OLED protection
+        contentLayout = findViewById(R.id.contentLayout)
+        screensaverOverlay = findViewById(R.id.screensaverOverlay)
+        screensaverContent = findViewById(R.id.screensaverContent)
+        ivScreensaverArtwork = findViewById(R.id.ivScreensaverArtwork)
+        tvScreensaverTitle = findViewById(R.id.tvScreensaverTitle)
+        tvScreensaverArtist = findViewById(R.id.tvScreensaverArtist)
     }
 
     /**
@@ -229,6 +307,9 @@ class MainActivity : AppCompatActivity() {
             if (metadata.isPlaying != isPlayingState) {
                 isPlayingState = metadata.isPlaying
 
+                // Reset inactivity timer / cancel screensaver when playing state changes
+                resetInactivityTimer()
+
                 val targetScale = if (metadata.isPlaying) 1.0f else 0.85f
                 cardAlbumArt.animate()
                     .scaleX(targetScale)
@@ -236,6 +317,17 @@ class MainActivity : AppCompatActivity() {
                     .setDuration(400)
                     .setInterpolator(OvershootInterpolator(1.2f))
                     .start()
+            }
+
+            // Update screensaver text dynamically if active
+            if (isScreensaverActive) {
+                if (metadata.title.isNotEmpty()) {
+                    tvScreensaverTitle.text = metadata.title
+                    tvScreensaverArtist.text = metadata.artist
+                } else {
+                    tvScreensaverTitle.text = getString(R.string.app_name)
+                    tvScreensaverArtist.text = getString(R.string.status_waiting)
+                }
             }
         }
 
@@ -246,20 +338,41 @@ class MainActivity : AppCompatActivity() {
 
         // Observe artwork changes for the blurred background + animated gradient
         viewModel.artwork.observe(this) { bitmap ->
+            val mode = getSharedPreferences("fire_airplay_prefs", Context.MODE_PRIVATE)
+                .getString("background_mode", "liquid_gradient")
+
             if (bitmap != null) {
                 // Apply very heavy blur to the full-screen background (200f for max smoothness)
-                BlurHelper.applyBlur(this, ivBackgroundBlur, bitmap, 200f)
+                if (mode == "liquid_gradient" || mode == "blurred_artwork") {
+                    BlurHelper.applyBlur(this, ivBackgroundBlur, bitmap, 200f)
+                }
 
                 // Update the animated gradient colors from album palette
-                animatedGradient.updateColors(bitmap)
+                if (mode == "liquid_gradient") {
+                    animatedGradient.updateColors(bitmap)
+                }
 
                 // Play entrance animation on first artwork
                 playEntranceAnimation()
+
+                // Update screensaver artwork if active
+                if (isScreensaverActive) {
+                    ivScreensaverArtwork.setImageBitmap(bitmap)
+                    ivScreensaverArtwork.visibility = View.VISIBLE
+                }
             } else {
                 // Reset to defaults
-                ivBackgroundBlur.setImageResource(R.drawable.ic_album_placeholder)
-                BlurHelper.clearBlur(ivBackgroundBlur)
-                animatedGradient.resetColors()
+                if (mode == "liquid_gradient" || mode == "blurred_artwork") {
+                    ivBackgroundBlur.setImageResource(R.drawable.ic_album_placeholder)
+                    BlurHelper.clearBlur(ivBackgroundBlur)
+                }
+                if (mode == "liquid_gradient") {
+                    animatedGradient.resetColors()
+                }
+
+                if (isScreensaverActive) {
+                    ivScreensaverArtwork.setImageResource(R.drawable.ic_album_placeholder)
+                }
             }
         }
     }
@@ -306,6 +419,141 @@ class MainActivity : AppCompatActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             setupImmersiveMode()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyBackgroundMode()
+        resetInactivityTimer()
+        pixelShiftHandler.postDelayed(pixelShiftRunnable, 60000)
+    }
+
+    override fun onPause() {
+        inactivityHandler.removeCallbacks(inactivityRunnable)
+        pixelShiftHandler.removeCallbacks(pixelShiftRunnable)
+        screensaverDriftHandler.removeCallbacks(screensaverDriftRunnable)
+        hideScreensaver()
+        super.onPause()
+    }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        // Reset inactivity timer on any remote control key press
+        resetInactivityTimer()
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun resetInactivityTimer() {
+        inactivityHandler.removeCallbacks(inactivityRunnable)
+        if (isScreensaverActive) {
+            hideScreensaver()
+        }
+        if (!isPlayingState) {
+            inactivityHandler.postDelayed(inactivityRunnable, INACTIVITY_DELAY)
+        }
+    }
+
+    private fun showScreensaver() {
+        if (isScreensaverActive) return
+        isScreensaverActive = true
+
+        // Populate metadata into the screensaver views
+        val metadata = viewModel.metadata.value
+        if (metadata != null && metadata.title.isNotEmpty()) {
+            tvScreensaverTitle.text = metadata.title
+            tvScreensaverArtist.text = metadata.artist
+            val bitmap = viewModel.artwork.value
+            if (bitmap != null) {
+                ivScreensaverArtwork.setImageBitmap(bitmap)
+                ivScreensaverArtwork.visibility = View.VISIBLE
+            } else {
+                ivScreensaverArtwork.setImageResource(R.drawable.ic_album_placeholder)
+            }
+        } else {
+            tvScreensaverTitle.text = getString(R.string.app_name)
+            tvScreensaverArtist.text = getString(R.string.status_waiting)
+            ivScreensaverArtwork.setImageResource(R.drawable.ic_album_placeholder)
+        }
+
+        // Reset positions
+        screensaverContent.translationX = 0f
+        screensaverContent.translationY = 0f
+
+        // Fade in overlay
+        screensaverOverlay.alpha = 0f
+        screensaverOverlay.visibility = View.VISIBLE
+        screensaverOverlay.animate()
+            .alpha(1f)
+            .setDuration(1000)
+            .withEndAction {
+                screensaverDriftHandler.post(screensaverDriftRunnable)
+            }
+            .start()
+
+        Log.i("MainActivity", "Screensaver activated")
+    }
+
+    private fun hideScreensaver() {
+        if (!isScreensaverActive) return
+        isScreensaverActive = false
+
+        screensaverDriftHandler.removeCallbacks(screensaverDriftRunnable)
+        screensaverContent.animate().cancel()
+
+        // Fade out overlay
+        screensaverOverlay.animate()
+            .alpha(0f)
+            .setDuration(500)
+            .withEndAction {
+                screensaverOverlay.visibility = View.GONE
+            }
+            .start()
+
+        Log.i("MainActivity", "Screensaver deactivated")
+    }
+
+    /**
+     * Applies the configured background theme dynamically, showing or hiding
+     * layers and adjusting colors as requested.
+     */
+    private fun applyBackgroundMode() {
+        val prefs = getSharedPreferences("fire_airplay_prefs", Context.MODE_PRIVATE)
+        val mode = prefs.getString("background_mode", "liquid_gradient")
+        val currentArtwork = viewModel.artwork.value
+
+        when (mode) {
+            "liquid_gradient" -> {
+                rootContainer.setBackgroundColor(ContextCompat.getColor(this, R.color.background_primary))
+                ivBackgroundBlur.visibility = View.VISIBLE
+                animatedGradient.visibility = View.VISIBLE
+                
+                // If there's active artwork, make sure it's rendered
+                if (currentArtwork != null) {
+                    BlurHelper.applyBlur(this, ivBackgroundBlur, currentArtwork, 200f)
+                    animatedGradient.updateColors(currentArtwork)
+                } else {
+                    ivBackgroundBlur.setImageResource(R.drawable.ic_album_placeholder)
+                    BlurHelper.clearBlur(ivBackgroundBlur)
+                    animatedGradient.resetColors()
+                }
+            }
+            "blurred_artwork" -> {
+                rootContainer.setBackgroundColor(ContextCompat.getColor(this, R.color.background_primary))
+                ivBackgroundBlur.visibility = View.VISIBLE
+                animatedGradient.visibility = View.GONE
+                
+                if (currentArtwork != null) {
+                    BlurHelper.applyBlur(this, ivBackgroundBlur, currentArtwork, 200f)
+                } else {
+                    ivBackgroundBlur.setImageResource(R.drawable.ic_album_placeholder)
+                    BlurHelper.clearBlur(ivBackgroundBlur)
+                }
+            }
+            "pure_black" -> {
+                rootContainer.setBackgroundColor(android.graphics.Color.BLACK)
+                ivBackgroundBlur.visibility = View.GONE
+                animatedGradient.visibility = View.GONE
+            }
         }
     }
 

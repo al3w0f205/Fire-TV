@@ -3,6 +3,11 @@ package com.fireairplay.receiver.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -14,6 +19,7 @@ import com.fireairplay.receiver.audio.AudioPlayer
 import com.fireairplay.receiver.model.TrackMetadata
 import com.fireairplay.receiver.network.AirPlayServiceRegistrar
 import com.fireairplay.receiver.server.RaopServer
+import kotlinx.coroutines.*
 
 /**
  * Foreground service that manages the AirPlay receiver lifecycle.
@@ -50,6 +56,74 @@ class AirPlayService : Service() {
     private lateinit var serviceRegistrar: AirPlayServiceRegistrar
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var isMdnsRegistered = false
+
+    private fun registerMdns() {
+        val port = raopServer?.rtspPort ?: RaopServer.DEFAULT_RTSP_PORT
+        serviceRegistrar.unregister()
+        serviceRegistrar.register(port)
+        isMdnsRegistered = true
+        Log.i(TAG, "mDNS service registered on port $port")
+    }
+
+    private fun unregisterMdns() {
+        if (isMdnsRegistered) {
+            serviceRegistrar.unregister()
+            isMdnsRegistered = false
+            Log.i(TAG, "mDNS service unregistered")
+        }
+    }
+
+    private fun setupNetworkCallback() {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        connectivityManager = cm
+
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+            .build()
+
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            private var job: Job? = null
+
+            override fun onAvailable(network: Network) {
+                Log.i(TAG, "Network available: $network")
+                job?.cancel()
+                job = serviceScope.launch {
+                    delay(1000)
+                    registerMdns()
+                }
+            }
+
+            override fun onLost(network: Network) {
+                Log.i(TAG, "Network lost: $network")
+                job?.cancel()
+                job = serviceScope.launch {
+                    unregisterMdns()
+                }
+            }
+
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
+                Log.d(TAG, "Network link properties changed: $network")
+                job?.cancel()
+                job = serviceScope.launch {
+                    delay(1000)
+                    registerMdns()
+                }
+            }
+        }
+
+        try {
+            cm.registerNetworkCallback(request, networkCallback!!)
+            Log.i(TAG, "Network callback registered successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register network callback: ${e.message}")
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "Service created")
@@ -68,6 +142,9 @@ class AirPlayService : Service() {
                 onStatusCallback?.invoke(status)
             }
         }
+
+        // Setup connectivity monitoring
+        setupNetworkCallback()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -84,11 +161,8 @@ class AirPlayService : Service() {
         // Start the RAOP server
         raopServer?.start()
 
-        // Register mDNS service for discovery
-        val port = raopServer?.rtspPort ?: RaopServer.DEFAULT_RTSP_PORT
-        serviceRegistrar.register(port)
-
-        Log.i(TAG, "✅ AirPlay receiver is active on port $port")
+        // Trigger initial mDNS registration immediately if network is active
+        registerMdns()
 
         return START_STICKY
     }
@@ -96,8 +170,18 @@ class AirPlayService : Service() {
     override fun onDestroy() {
         Log.i(TAG, "Service destroyed")
 
+        // Unregister network callback
+        networkCallback?.let {
+            connectivityManager?.unregisterNetworkCallback(it)
+        }
+        networkCallback = null
+        connectivityManager = null
+
+        // Cancel scope
+        serviceScope.cancel()
+
         // Unregister mDNS
-        serviceRegistrar.unregister()
+        unregisterMdns()
 
         // Stop server
         raopServer?.stop()

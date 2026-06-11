@@ -323,4 +323,71 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- Layer 5: Screensaver overlay (anti-burn-in) -->
+    <FrameLayout
+        android:id="@+id/screensaverOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- Floating container that moves slowly across the screen -->
+        <LinearLayout
+            android:id="@+id/screensaverContent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_gravity="center">
+
+            <!-- Small, floating highly-translucent album cover -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent">
+
+                <ImageView
+                    android:id="@+id/ivScreensaverArtwork"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:alpha="0.4"
+                    android:src="@drawable/ic_album_placeholder"
+                    android:contentDescription="@null" />
+            </androidx.cardview.widget.CardView>
+
+            <!-- Floating translucent title -->
+            <TextView
+                android:id="@+id/tvScreensaverTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:fontFamily="@font/montserrat_bold"
+                android:textColor="#80FFFFFF"
+                android:textSize="22sp"
+                android:textAllCaps="true"
+                android:shadowColor="#80000000"
+                android:shadowRadius="3"
+                android:text="Song Title" />
+
+            <!-- Floating translucent artist -->
+            <TextView
+                android:id="@+id/tvScreensaverArtist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="@font/montserrat_regular"
+                android:textColor="#66FFFFFF"
+                android:textSize="15sp"
+                android:shadowColor="#80000000"
+                android:shadowRadius="3"
+                android:text="Artist Name" />
+
+        </LinearLayout>
+    </FrameLayout>
+
 </FrameLayout>

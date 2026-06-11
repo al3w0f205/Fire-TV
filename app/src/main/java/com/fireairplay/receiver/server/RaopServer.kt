@@ -94,6 +94,8 @@ class RaopServer(
     private var aesKey: ByteArray? = null
     private var aesIv: ByteArray? = null
     private var aesCipher: Cipher? = null
+    private var aesKeySpec: SecretKeySpec? = null
+    private var aesIvSpec: IvParameterSpec? = null
 
     // RTP Jitter Buffer
     private val packetBuffer = arrayOfNulls<ByteArray>(256)
@@ -422,12 +424,17 @@ class RaopServer(
 
         if (aesKey != null && aesIv != null) {
             try {
-                aesCipher = Cipher.getInstance("AES/CBC/NoPadding")
                 val keySpec = SecretKeySpec(aesKey, "AES")
                 val ivSpec = IvParameterSpec(aesIv)
-                aesCipher?.init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
+                aesKeySpec = keySpec
+                aesIvSpec = ivSpec
+                aesCipher = Cipher.getInstance("AES/CBC/NoPadding").apply {
+                    init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
+                }
             } catch (e: Exception) {
                 aesCipher = null
+                aesKeySpec = null
+                aesIvSpec = null
             }
         }
 
@@ -444,9 +451,15 @@ class RaopServer(
         try { controlSocket?.close() } catch (_: Exception) {}
         try { timingSocket?.close() } catch (_: Exception) {}
 
-        audioSocket = DatagramSocket(0)
-        controlSocket = DatagramSocket(0)
-        timingSocket = DatagramSocket(0)
+        audioSocket = DatagramSocket(0).apply {
+            receiveBufferSize = 512 * 1024 // 512 KB receive buffer
+        }
+        controlSocket = DatagramSocket(0).apply {
+            receiveBufferSize = 64 * 1024 // 64 KB control buffer
+        }
+        timingSocket = DatagramSocket(0).apply {
+            receiveBufferSize = 64 * 1024 // 64 KB timing buffer
+        }
 
         audioPort = audioSocket!!.localPort
         controlPort = controlSocket!!.localPort
@@ -576,15 +589,14 @@ class RaopServer(
                             }
 
                             if (packet.length > headerSize) {
-                                val audioData = ByteArray(packet.length - headerSize)
-                                System.arraycopy(header, offset + headerSize, audioData, 0, audioData.size)
+                                val audioPayloadLength = packet.length - headerSize
 
                                 // Extract sequence number
                                 val seqNo = ((header[rtpOffset + 2].toInt() and 0xFF) shl 8) or 
                                             (header[rtpOffset + 3].toInt() and 0xFF)
 
-                                // Decrypt if AES is configured
-                                val decryptedData = decryptAudio(audioData)
+                                // Decrypt if AES is configured (directly from the header buffer)
+                                val decryptedData = decryptAudio(header, offset + headerSize, audioPayloadLength)
 
                                 if (nextPlaySeqNo == -1) {
                                     nextPlaySeqNo = seqNo
@@ -605,9 +617,14 @@ class RaopServer(
                                     packetBuffer[seqNo % 256] = decryptedData
                                 }
 
-                                 // Force advance if gap is too large to prevent indefinite stalls (3 packets ≈ 24ms)
-                                 if (distance > 3) {
+                                 // Force advance if gap is too large to prevent indefinite stalls (2 packets ≈ 16ms)
+                                 if (distance > 2) {
                                      while (packetBuffer[nextPlaySeqNo % 256] == null && nextPlaySeqNo != seqNo) {
+                                         // Enqueue a silent PCM frame to keep the timeline and prevent pops
+                                         val silenceSize = alacDecoder.frameLength * alacDecoder.numChannels
+                                         if (silenceSize > 0) {
+                                             audioPlayer.enqueuePcmBlocking(ShortArray(silenceSize))
+                                         }
                                          nextPlaySeqNo = (nextPlaySeqNo + 1) and 0xFFFF
                                      }
                                  }
@@ -653,36 +670,41 @@ class RaopServer(
      * AirPlay encrypts in 16-byte blocks. Any remaining bytes (< 16) at the end
      * are left unencrypted.
      */
-    private fun decryptAudio(data: ByteArray): ByteArray {
-        if (aesCipher == null || aesKey == null || aesIv == null) {
-            return data // No encryption configured
+    private fun decryptAudio(packetData: ByteArray, offset: Int, length: Int): ByteArray {
+        val cipher = aesCipher
+        val keySpec = aesKeySpec
+        val ivSpec = aesIvSpec
+
+        if (cipher == null || keySpec == null || ivSpec == null) {
+            val decrypted = ByteArray(length)
+            System.arraycopy(packetData, offset, decrypted, 0, length)
+            return decrypted // No encryption configured
         }
 
         try {
             // Re-initialize cipher with the original IV for each frame
-            val keySpec = SecretKeySpec(aesKey, "AES")
-            val ivSpec = IvParameterSpec(aesIv)
-            val cipher = Cipher.getInstance("AES/CBC/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
 
             // Only decrypt full 16-byte blocks
-            val encryptedLength = (data.size / 16) * 16
-            val decrypted = ByteArray(data.size)
+            val encryptedLength = (length / 16) * 16
+            val decrypted = ByteArray(length)
 
             if (encryptedLength > 0) {
-                val decryptedBlocks = cipher.doFinal(data, 0, encryptedLength)
+                val decryptedBlocks = cipher.doFinal(packetData, offset, encryptedLength)
                 System.arraycopy(decryptedBlocks, 0, decrypted, 0, decryptedBlocks.size)
             }
 
             // Copy remaining unencrypted bytes
-            if (encryptedLength < data.size) {
-                System.arraycopy(data, encryptedLength, decrypted, encryptedLength, data.size - encryptedLength)
+            if (encryptedLength < length) {
+                System.arraycopy(packetData, offset + encryptedLength, decrypted, encryptedLength, length - encryptedLength)
             }
 
             return decrypted
         } catch (e: Exception) {
             Log.w(TAG, "AES decryption error: ${e.message}")
-            return data
+            val decrypted = ByteArray(length)
+            System.arraycopy(packetData, offset, decrypted, 0, length)
+            return decrypted
         }
     }
 

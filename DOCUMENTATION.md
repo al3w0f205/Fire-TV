@@ -7,20 +7,61 @@
 
 ## Tabla de Contenidos
 
-1. [Resumen del Proyecto](#resumen-del-proyecto)
-2. [Arquitectura General](#arquitectura-general)
-3. [Flujo de Datos Completo](#flujo-de-datos-completo)
-4. [Estructura de Archivos](#estructura-de-archivos)
-5. [Capa de Red y Protocolo](#capa-de-red-y-protocolo)
-6. [Capa de Audio](#capa-de-audio)
-7. [Capa de UI](#capa-de-ui)
-8. [Modelo de Datos](#modelo-de-datos)
-9. [Servicio en Primer Plano](#servicio-en-primer-plano)
-10. [Recursos Android](#recursos-android)
-11. [Dependencias](#dependencias)
-12. [Configuración de Build](#configuración-de-build)
-13. [Guía de Desarrollo](#guía-de-desarrollo)
-14. [Problemas Conocidos y Limitaciones](#problemas-conocidos-y-limitaciones)
+1. [Guía de Inicio Rápido para Desarrolladores y Agentes de IA](#guía-de-inicio-rápido-para-desarrolladores-y-agentes-de-ia)
+2. [Resumen del Proyecto](#resumen-del-proyecto)
+3. [Arquitectura General](#arquitectura-general)
+4. [Flujo de Datos Completo](#flujo-de-datos-completo)
+5. [Estructura de Archivos](#estructura-de-archivos)
+6. [Capa de Red y Protocolo](#capa-de-red-y-protocolo)
+7. [Capa de Audio](#capa-de-audio)
+8. [Capa de UI](#capa-de-ui)
+9. [Modelo de Datos](#modelo-de-datos)
+10. [Servicio en Primer Plano](#servicio-en-primer-plano)
+11. [Recursos Android](#recursos-android)
+12. [Dependencias](#dependencias)
+13. [Configuración de Build](#configuración-de-build)
+14. [Guía de Desarrollo](#guía-de-desarrollo)
+15. [Problemas Conocidos y Limitaciones](#problemas-conocidos-y-limitaciones)
+
+---
+
+## Guía de Inicio Rápido para Desarrolladores y Agentes de IA
+
+Si eres un desarrollador humano o un agente de IA que acaba de entrar a este repositorio, lee esta sección para comprender el diseño general del proyecto, ubicar componentes clave de inmediato y trabajar sobre el proyecto sin necesidad de analizar todos los archivos a la vez:
+
+### Mapa de Responsabilidades (¿Dónde está cada componente?)
+
+* **Visuales de la Pantalla Principal (Now Playing UI):**
+  - Layout del reproductor: [activity_main.xml](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/res/layout/activity_main.xml)
+  - Controlador de UI (animaciones, pixel shifting, protector de pantalla, carga de temas): [MainActivity.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/MainActivity.kt)
+  - Efecto Liquid Glass (Canvas custom): [GlassPanelLayout.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/ui/GlassPanelLayout.kt)
+  - Fondo animado fluido: [AnimatedGradientView.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/ui/AnimatedGradientView.kt)
+* **Visuales y Lógica de Ajustes:**
+  - Layout del panel de ajustes (cambio de nombre y temas): [activity_settings.xml](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/res/layout/activity_settings.xml)
+  - Lógica de SharedPreferences y guardado: [SettingsActivity.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/ui/SettingsActivity.kt)
+* **Motor y Bucle de Audio:**
+  - Descompresión Apple Lossless (ALAC): [AlacDecoder.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/audio/AlacDecoder.kt)
+  - Reproductor `AudioTrack`, control de volumen y cola (loop, priming, volumen): [AudioPlayer.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/audio/AudioPlayer.kt)
+* **Capa de Red y RTSP/UDP:**
+  - Servidor RTSP y receptor RTP (AES, Jitter buffer): [RaopServer.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/server/RaopServer.kt)
+  - Servicio en primer plano y monitoreo reactivo de red: [AirPlayService.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/service/AirPlayService.kt)
+  - Registro Bonjour/mDNS: [AirPlayServiceRegistrar.kt](file:///c:/Users/power/Desktop/Ale/Repos%20-%20Proyectos/Fire%20TV/app/src/main/java/com/fireairplay/receiver/network/AirPlayServiceRegistrar.kt)
+
+### Flujo General de Operación
+1. Al arrancar la app, `MainActivity` inicia `AirPlayService`.
+2. `AirPlayService` registra el servicio `_raop._tcp` (Bonjour) mediante `AirPlayServiceRegistrar` en el puerto RTSP `5000` y abre el socket en `RaopServer`.
+3. Cuando un dispositivo iOS se conecta, se realiza el handshake RTSP (`OPTIONS` -> `ANNOUNCE` -> `SETUP` -> `RECORD`).
+4. `RaopServer` inicia la recepción UDP del flujo RTP de audio. Cada frame se descifra (AES-128-CBC), se mete al Jitter Buffer y se pasa a `AlacDecoder`.
+5. El PCM resultante se encola en `AudioPlayer` para su reproducción inmediata en el hardware `AudioTrack`.
+6. En paralelo, los metadatos y carátula se extraen de las peticiones `SET_PARAMETER` de RTSP y se propagan mediante `LiveData` a la UI.
+
+### Políticas de Diseño y Desarrollo (¡Crucial para IA y Humanos!)
+* **Compilación Local:** Para compilar desde PowerShell, asegúrate de apuntar `$env:JAVA_HOME` al JBR de Android Studio:
+  `$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"; .\gradlew assembleDebug`
+* **Compatibilidad minSdk=22:** El proyecto soporta dispositivos TV Sticks antiguos. **No uses llamadas directas a APIs de versiones superiores** sin verificar la versión SDK o usar clases de compatibilidad (ej. prefiere `ContextCompat.getColor(context, id)` a `resources.getColor(id, theme)`).
+* **Consumo Eficiente en TV:** Los procesadores de televisores Android TV/Fire TV son de bajo rendimiento.
+  - La desencriptación AES en `decryptAudio()` se ejecuta en modo "Zero-Copy" reutilizando instancias criptográficas para evitar recolectar basura en hilos de tiempo real.
+  - El blur del fondo y la extracción de colores se desactivan por completo si la preferencia `"background_mode"` de SharedPreferences es `"pure_black"`. Evita agregar cálculos pesados al hilo principal.
 
 ---
 
@@ -30,13 +71,13 @@ FireAirPlay convierte un Amazon Fire TV Stick (o cualquier dispositivo Android T
 
 ### Características Principales
 
-- 📡 **Descubrimiento automático** vía mDNS/Bonjour — aparece en el menú AirPlay de iOS
-- 🔐 **Descifrado AES-128-CBC** de audio encriptado + autenticación RSA Apple-Challenge
-- 🎵 **Decodificación ALAC** (Apple Lossless) en Kotlin puro, sin código nativo
-- 🖼️ **Metadatos y artwork** — título, artista, álbum, carátula del álbum
-- 📊 **Progreso en tiempo real** — posición y duración de la canción
-- 🎨 **UI Liquid Glass** — interfaz premium con blur, gradientes animados y panel de vidrio esmerilado
-- 🔊 **Control de volumen** remoto desde el dispositivo Apple
+- **Descubrimiento automático** vía mDNS/Bonjour — aparece en el menú AirPlay de iOS
+- **Descifrado AES-128-CBC** de audio encriptado + autenticación RSA Apple-Challenge
+- **Decodificación ALAC** (Apple Lossless) en Kotlin puro, sin código nativo
+- **Metadatos y artwork** — título, artista, álbum, carátula del álbum
+- **Progreso en tiempo real** — posición y duración de la canción
+- **UI Liquid Glass** — interfaz premium con blur, gradientes animados y panel de vidrio esmerilado
+- **Control de volumen** remoto desde el dispositivo Apple
 
 ---
 
@@ -395,9 +436,13 @@ Hilo del RaopServer    ──trySend()──►  Channel<ShortArray>  ──rece
 | Sample rate | 44100 Hz |
 | Canales | CHANNEL_OUT_STEREO |
 | Formato | ENCODING_PCM_16BIT |
-| Buffer size | 2× minBufferSize (mínimo 8192) |
+| Buffer de Hardware | **65,536 bytes (~370ms)** (evita dropouts por hilos lentos) |
 | Modo | MODE_STREAM |
 | Channel capacity | 100 frames ≈ 0.8 segundos |
+
+#### Fluidez Completa en Loop
+* Para erradicar los bloqueos o demoras de audio en el loop de canciones, se desactivó la pausa reactiva por underrun durante la transmisión de audio activa.
+* El reproductor de `AudioTrack` se mantiene en estado de reproducción ininterrumpida. La pre-buferización (priming) de 6 tramas se realiza únicamente al inicio de la pista o tras un seek, garantizando que el final de la canción se reproduzca sin quedar atrapado en el búfer pausado y que el reinicio de la pista en loop sea instantáneo.
 
 #### Control de Volumen
 
@@ -514,6 +559,20 @@ El `dispatchDraw()` también clipea los hijos al RoundRect para que nada se salg
 | Entrance (panel) | Primera vez que llega artwork | TranslateY 80→0 + fade in, 500ms, delay 200ms |
 | Play/Pause | `isPlaying` cambia | Scale 1.0↔0.85, 400ms, OvershootInterpolator |
 | Status fade | Primer metadata con título | Alpha → 0, 300ms |
+
+#### Protección OLED (Anti-Quemado) y Modo de Espera
+* **Pixel Shifting (Desplazamiento de Píxeles):** Cada 60 segundos, si no está activo el protector de pantalla, desplaza suavemente todo el layout principal en un vector aleatorio de entre `-10` y `+10` píxeles para evitar que los bordes estáticos desgasten los píxeles.
+* **Protector de Pantalla Ambiental Flotante (Screensaver):** 
+  - **Lógica de Activación:** Se ejecuta tras 3 minutos de inactividad del control remoto (`dispatchKeyEvent`) **únicamente si no se está reproduciendo música** (`isPlayingState == false`).
+  - Si la reproducción está activa, el screensaver se desactiva y el temporizador se cancela para permitir visualizar la interfaz completa sin interrupciones molestas.
+  - Al pausarse o detenerse la música, la cuenta de 3 minutos se reinicia.
+  - Consiste en una atenuación de pantalla (fondo al 90% negro) y una tarjeta minimalista que flota y deriva lentamente (cada 12 segundos) a través de la pantalla para protección absoluta.
+
+#### Gestión de Temas de Fondo (Modos de Fondo)
+Se carga la preferencia `"background_mode"` guardada en `SharedPreferences` al reanudarse la actividad (`onResume()`) o al volver de los ajustes:
+1. **Gradiente Líquido Dinámico (`liquid_gradient`):** Muestra el fondo borroso y el gradiente fluido animado.
+2. **Carátula Borrosa Completa (`blurred_artwork`):** Oculta el gradiente animado y mantiene el fondo borroso.
+3. **Oscuro OLED Puro (`pure_black`):** Cambia el contenedor de fondo a negro absoluto (`#000000`) y oculta ambas capas de fondo. Para optimizar el rendimiento, el observador de metadatos de la carátula omite por completo los cálculos pesados de RenderScript y extracción de colores (Palette).
 
 ---
 

@@ -47,8 +47,8 @@ class AudioPlayer {
      */
     fun initialize() {
         val minBufferSize = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-        // Use 2x minimum buffer for stability on Fire TV Sticks
-        val bufferSize = (minBufferSize * 2).coerceAtLeast(8192)
+        // Use 4x minimum buffer or at least 65536 bytes for stability on TV platforms
+        val bufferSize = (minBufferSize * 4).coerceAtLeast(65536)
 
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
@@ -94,22 +94,11 @@ class AudioPlayer {
         playbackJob = scope?.launch {
             Log.i(TAG, "Playback coroutine started")
             try {
-                var lastWriteTime = 0L
                 var primedCount = 0
                 while (isActive && isPlaying.get()) {
                     val pcmData = pcmChannel.receive()
 
-                    val now = System.currentTimeMillis()
-                    if (isPrimed.get() && lastWriteTime != 0L && now - lastWriteTime > 150) {
-                        track.pause()
-                        track.flush()
-                        isPrimed.set(false)
-                        primedCount = 0
-                        Log.i(TAG, "Audio underrun detected (gap of ${now - lastWriteTime}ms), re-buffering...")
-                    }
-
                     track.write(pcmData, 0, pcmData.size)
-                    lastWriteTime = System.currentTimeMillis()
 
                     if (!isPrimed.get()) {
                         primedCount++
