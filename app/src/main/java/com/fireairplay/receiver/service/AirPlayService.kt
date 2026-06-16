@@ -23,6 +23,7 @@ import com.fireairplay.receiver.model.TrackMetadata
 import com.fireairplay.receiver.network.AirPlayServiceRegistrar
 import com.fireairplay.receiver.server.RaopServer
 import com.fireairplay.receiver.server.AirPlayVideoServer
+import com.fireairplay.receiver.server.AirPlayMirroringServer
 import com.fireairplay.receiver.ui.VideoActivity
 import kotlinx.coroutines.*
 
@@ -60,6 +61,7 @@ class AirPlayService : Service() {
     private lateinit var alacDecoder: AlacDecoder
     private lateinit var serviceRegistrar: AirPlayServiceRegistrar
     private lateinit var videoServer: AirPlayVideoServer
+    private lateinit var mirroringServer: AirPlayMirroringServer
     private var wakeLock: PowerManager.WakeLock? = null
     private var mediaSession: MediaSession? = null
 
@@ -152,9 +154,15 @@ class AirPlayService : Service() {
             }
         }
 
-        // Create the Video server
+        // Create the Video Casting server
         videoServer = AirPlayVideoServer(port = 7000) { url, startPos ->
             launchVideoActivity(url, startPos)
+        }
+
+        // Create the Mirroring server
+        mirroringServer = AirPlayMirroringServer(customName) { videoFrame ->
+            // Future implementation: Send H.264 NAL units to a MediaCodec SurfaceView
+            // Log.d(TAG, "Received raw H.264 frame: ${videoFrame.size} bytes")
         }
 
         initMediaSession()
@@ -177,8 +185,11 @@ class AirPlayService : Service() {
         // Start the RAOP server
         raopServer?.start()
 
-        // Start the Video server
+        // Start the Video Casting server
         videoServer.start()
+
+        // Start the Screen Mirroring server
+        mirroringServer.start()
 
         // Trigger initial mDNS registration immediately if network is active
         registerMdns()
@@ -202,11 +213,12 @@ class AirPlayService : Service() {
         // Unregister mDNS
         unregisterMdns()
 
-        // Stop server
+        // Stop servers
         raopServer?.stop()
         raopServer = null
 
         videoServer.stop()
+        mirroringServer.stop()
 
         // Release MediaSession
         mediaSession?.isActive = false

@@ -74,4 +74,5 @@ dependencies {
 
     // Open-source AirPlay mirroring library (FairPlay decryption and Handshake)
     implementation("com.github.serezhka:java-airplay-lib:master-SNAPSHOT")
+    implementation("com.github.serezhka:java-airplay-server:master-SNAPSHOT")
 }
