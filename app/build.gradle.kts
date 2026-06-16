@@ -15,12 +15,6 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
-
-        externalNativeBuild {
-            cmake {
-                cppFlags += "-std=c++17"
-            }
-        }
     }
 
     buildTypes {
@@ -44,13 +38,6 @@ android {
 
     buildFeatures {
         viewBinding = true
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
     }
 }
 
@@ -84,4 +71,7 @@ dependencies {
 
     // dd-plist to parse Apple Binary/XML Property Lists (PLists) used in AirPlay Video HTTP requests
     implementation("com.googlecode.plist:dd-plist:1.27")
+
+    // Open-source AirPlay mirroring library (FairPlay decryption and Handshake)
+    implementation("com.github.serezhka:java-airplay-lib:master-SNAPSHOT")
 }
