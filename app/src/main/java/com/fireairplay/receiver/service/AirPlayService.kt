@@ -16,9 +16,14 @@ import com.fireairplay.receiver.MainActivity
 import com.fireairplay.receiver.R
 import com.fireairplay.receiver.audio.AlacDecoder
 import com.fireairplay.receiver.audio.AudioPlayer
+import android.media.MediaMetadata
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import com.fireairplay.receiver.model.TrackMetadata
 import com.fireairplay.receiver.network.AirPlayServiceRegistrar
 import com.fireairplay.receiver.server.RaopServer
+import com.fireairplay.receiver.server.AirPlayVideoServer
+import com.fireairplay.receiver.ui.VideoActivity
 import kotlinx.coroutines.*
 
 /**
@@ -54,7 +59,9 @@ class AirPlayService : Service() {
     private lateinit var audioPlayer: AudioPlayer
     private lateinit var alacDecoder: AlacDecoder
     private lateinit var serviceRegistrar: AirPlayServiceRegistrar
+    private lateinit var videoServer: AirPlayVideoServer
     private var wakeLock: PowerManager.WakeLock? = null
+    private var mediaSession: MediaSession? = null
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var connectivityManager: ConnectivityManager? = null
@@ -62,11 +69,12 @@ class AirPlayService : Service() {
     private var isMdnsRegistered = false
 
     private fun registerMdns() {
-        val port = raopServer?.rtspPort ?: RaopServer.DEFAULT_RTSP_PORT
+        val audioPort = raopServer?.rtspPort ?: RaopServer.DEFAULT_RTSP_PORT
+        val videoPort = 7000
         serviceRegistrar.unregister()
-        serviceRegistrar.register(port)
+        serviceRegistrar.register(audioPort, videoPort)
         isMdnsRegistered = true
-        Log.i(TAG, "mDNS service registered on port $port")
+        Log.i(TAG, "mDNS services registered (Audio:$audioPort, Video:$videoPort)")
     }
 
     private fun unregisterMdns() {
@@ -137,11 +145,19 @@ class AirPlayService : Service() {
         raopServer = RaopServer(audioPlayer, alacDecoder).apply {
             onMetadataUpdate = { metadata ->
                 onMetadataCallback?.invoke(metadata)
+                updateMediaSessionMetadata(metadata)
             }
             onStatusUpdate = { status ->
                 onStatusCallback?.invoke(status)
             }
         }
+
+        // Create the Video server
+        videoServer = AirPlayVideoServer(port = 7000) { url, startPos ->
+            launchVideoActivity(url, startPos)
+        }
+
+        initMediaSession()
 
         // Setup connectivity monitoring
         setupNetworkCallback()
@@ -160,6 +176,9 @@ class AirPlayService : Service() {
 
         // Start the RAOP server
         raopServer?.start()
+
+        // Start the Video server
+        videoServer.start()
 
         // Trigger initial mDNS registration immediately if network is active
         registerMdns()
@@ -186,6 +205,13 @@ class AirPlayService : Service() {
         // Stop server
         raopServer?.stop()
         raopServer = null
+
+        videoServer.stop()
+
+        // Release MediaSession
+        mediaSession?.isActive = false
+        mediaSession?.release()
+        mediaSession = null
 
         // Release audio
         audioPlayer.release()
@@ -271,5 +297,60 @@ class AirPlayService : Service() {
             }
         }
         wakeLock = null
+    }
+
+    private fun initMediaSession() {
+        mediaSession = MediaSession(this, "FireAirPlaySession").apply {
+            setCallback(object : MediaSession.Callback() {
+                override fun onPlay() {
+                    Log.i(TAG, "MediaSession: onPlay received from remote")
+                    // Future: send DACP request back to iPhone
+                }
+                override fun onPause() {
+                    Log.i(TAG, "MediaSession: onPause received from remote")
+                }
+                override fun onSkipToNext() {
+                    Log.i(TAG, "MediaSession: onSkipToNext received from remote")
+                }
+                override fun onSkipToPrevious() {
+                    Log.i(TAG, "MediaSession: onSkipToPrevious received from remote")
+                }
+            })
+            @Suppress("DEPRECATION")
+            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+            isActive = true
+        }
+    }
+
+    private fun updateMediaSessionMetadata(metadata: TrackMetadata) {
+        mediaSession?.let { session ->
+            val stateBuilder = PlaybackState.Builder()
+                .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS)
+                .setState(
+                    if (metadata.isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+                    PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+                    1.0f
+                )
+            session.setPlaybackState(stateBuilder.build())
+
+            val metaBuilder = MediaMetadata.Builder()
+                .putString(MediaMetadata.METADATA_KEY_TITLE, metadata.title)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, metadata.artist)
+                .putString(MediaMetadata.METADATA_KEY_ALBUM, metadata.album)
+
+            metadata.artwork?.let { bitmap ->
+                metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bitmap)
+            }
+            session.setMetadata(metaBuilder.build())
+        }
+    }
+
+    private fun launchVideoActivity(url: String, startPosition: Float) {
+        val intent = Intent(this, VideoActivity::class.java).apply {
+            putExtra(VideoActivity.EXTRA_VIDEO_URL, url)
+            putExtra(VideoActivity.EXTRA_START_POSITION, startPosition)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        startActivity(intent)
     }
 }

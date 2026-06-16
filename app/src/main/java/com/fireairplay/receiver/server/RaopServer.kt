@@ -117,6 +117,7 @@ class RaopServer(
     private var currentArtist: String = ""
     private var currentAlbum: String = ""
     private var currentArtwork: android.graphics.Bitmap? = null
+    private var currentArtworkHash: Int = 0
     private var currentDuration: Double = 0.0
     private var currentPosition: Double = 0.0
 
@@ -261,7 +262,7 @@ class RaopServer(
                     "SETUP" -> handleSetup(cseqStr, headers)
                     "RECORD" -> handleRecord(cseqStr)
                     "SET_PARAMETER" -> handleSetParameter(cseqStr, headers, body, binaryBody)
-                    "FLUSH" -> handleFlush(cseqStr)
+                    "FLUSH" -> handleFlush(cseqStr, headers)
                     "TEARDOWN" -> handleTeardown(cseqStr)
                     "GET_PARAMETER" -> handleGetParameter(cseqStr, body)
                     "POST" -> {
@@ -500,10 +501,18 @@ class RaopServer(
         return buildResponse("RTSP/1.0 200 OK", cseq)
     }
 
-    private fun handleFlush(cseq: String): String {
+    private fun handleFlush(cseq: String, headers: Map<String, String>): String {
         audioPlayer.flush()
         packetBuffer.fill(null)
-        nextPlaySeqNo = -1
+        
+        val rtpInfo = headers["RTP-Info"]
+        if (rtpInfo != null && rtpInfo.contains("seq=")) {
+            val seqStr = rtpInfo.substringAfter("seq=").substringBefore(";")
+            nextPlaySeqNo = seqStr.toIntOrNull() ?: -1
+        } else {
+            nextPlaySeqNo = -1
+        }
+        
         return buildResponse("RTSP/1.0 200 OK", cseq)
     }
 
@@ -517,6 +526,7 @@ class RaopServer(
         currentArtist = ""
         currentAlbum = ""
         currentArtwork = null
+        currentArtworkHash = 0
         currentDuration = 0.0
         currentPosition = 0.0
         publishMetadata()
@@ -610,6 +620,7 @@ class RaopServer(
                                     // Late packet, drop it
                                 } else if (distance >= 256) {
                                     // Massive jump, reset buffer
+                                    audioPlayer.flush() // Flush audio track to remove old song residue
                                     packetBuffer.fill(null)
                                     nextPlaySeqNo = seqNo
                                     packetBuffer[seqNo % 256] = decryptedData
@@ -617,16 +628,11 @@ class RaopServer(
                                     packetBuffer[seqNo % 256] = decryptedData
                                 }
 
-                                 // Force advance if gap is too large to prevent indefinite stalls (2 packets ≈ 16ms)
-                                 if (distance > 2) {
-                                     while (packetBuffer[nextPlaySeqNo % 256] == null && nextPlaySeqNo != seqNo) {
-                                         // Enqueue a silent PCM frame to keep the timeline and prevent pops
-                                         val silenceSize = alacDecoder.frameLength * alacDecoder.numChannels
-                                         if (silenceSize > 0) {
-                                             audioPlayer.enqueuePcmBlocking(ShortArray(silenceSize))
-                                         }
-                                         nextPlaySeqNo = (nextPlaySeqNo + 1) and 0xFFFF
-                                     }
+                                 // Force advance if gap is too large. We wait up to 64 packets (~500ms) for late packets.
+                                 // To maintain 0 delay, we skip missing packets immediately instead of injecting silence.
+                                 if (distance > 16) {
+                                     nextPlaySeqNo = seqNo
+                                     audioPlayer.notifyGap()
                                  }
 
                                 // Play all contiguous available packets sequentially
@@ -636,8 +642,8 @@ class RaopServer(
 
                                     val pcmSamples = alacDecoder.decode(data)
                                     if (pcmSamples != null && pcmSamples.isNotEmpty()) {
-                                        // Enqueue PCM to the AudioPlayer channel
-                                        audioPlayer.enqueuePcmBlocking(pcmSamples)
+                                        // Enqueue PCM using coroutine suspend to regulate backpressure naturally
+                                        audioPlayer.enqueuePcm(pcmSamples)
                                     }
 
                                     nextPlaySeqNo = (nextPlaySeqNo + 1) and 0xFFFF
@@ -847,6 +853,12 @@ class RaopServer(
      * Decodes album artwork from binary image data (JPEG or PNG).
      */
     private fun parseArtwork(data: ByteArray) {
+        val hash = data.contentHashCode()
+        if (hash == currentArtworkHash && currentArtwork != null) {
+            Log.i(TAG, "Artwork is unchanged, skipping processing to save CPU.")
+            return
+        }
+
         try {
             val options = BitmapFactory.Options().apply {
                 // First pass: get dimensions only
@@ -873,6 +885,7 @@ class RaopServer(
 
             if (bitmap != null) {
                 currentArtwork = bitmap
+                currentArtworkHash = hash
                 Log.i(TAG, "🖼️ Artwork received: ${bitmap.width}x${bitmap.height}")
                 publishMetadata()
             }

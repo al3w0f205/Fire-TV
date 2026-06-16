@@ -49,16 +49,33 @@ class AirPlayServiceRegistrar(private val context: Context) {
         }
 
         override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-            Log.e(TAG, "❌ Unregistration failed: errorCode=$errorCode")
+            Log.e(TAG, "❌ Audio Unregistration failed: errorCode=$errorCode")
+        }
+    }
+
+    private val videoRegistrationListener = object : NsdManager.RegistrationListener {
+        override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
+            Log.i(TAG, "✅ Video Service registered: ${serviceInfo.serviceName}")
+            isRegistered = true
+        }
+        override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+            Log.e(TAG, "❌ Video Registration failed: errorCode=$errorCode")
+        }
+        override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) {
+            Log.i(TAG, "Video Service unregistered: ${serviceInfo.serviceName}")
+        }
+        override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+            Log.e(TAG, "❌ Video Unregistration failed: errorCode=$errorCode")
         }
     }
 
     /**
-     * Registers the AirPlay RAOP service on the network.
+     * Registers the AirPlay RAOP service and AirPlay Video service on the network.
      *
-     * @param port the TCP port where the RTSP server is listening
+     * @param audioPort the TCP port where the RTSP server is listening
+     * @param videoPort the TCP port where the Video HTTP server is listening
      */
-    fun register(port: Int) {
+    fun register(audioPort: Int, videoPort: Int = 7000) {
         // Acquire multicast lock to ensure mDNS packets are received
         acquireMulticastLock()
 
@@ -67,15 +84,12 @@ class AirPlayServiceRegistrar(private val context: Context) {
         val customName = prefs.getString("device_name", DEVICE_NAME) ?: DEVICE_NAME
         val instanceName = "${macAddress}@${customName}"
 
-        val serviceInfo = NsdServiceInfo().apply {
+        val audioServiceInfo = NsdServiceInfo().apply {
             serviceName = instanceName
             serviceType = SERVICE_TYPE
-            setPort(port)
+            setPort(audioPort)
 
-            // AirPlay TXT records — these tell Apple devices what we support
-            // Reference: https://nto.github.io/AirPlay.html#servicediscovery-airtunesservice
-
-            // Use exact AirPort Express parameters so iOS 16 discovers it as a legacy audio receiver
+            // AirPlay TXT records
             setAttribute("txtvers", "1")
             setAttribute("ch", "2")
             setAttribute("cn", "0,1")
@@ -92,10 +106,27 @@ class AirPlayServiceRegistrar(private val context: Context) {
             setAttribute("vn", "65537")
         }
 
-        nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
-        nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
+        // AirPlay Video Service
+        val videoServiceInfo = NsdServiceInfo().apply {
+            serviceName = customName
+            serviceType = "_airplay._tcp"
+            setPort(videoPort)
 
-        Log.i(TAG, "Registering RAOP service: $instanceName on port $port")
+            // AirPlay Video TXT records
+            setAttribute("deviceid", getFormattedMacAddress())
+            setAttribute("features", "0x5A7FFFF7,0x1E") // Important feature bits that enable Video casting
+            setAttribute("model", "AppleTV5,3") // Fake an Apple TV so iPhones send video
+            setAttribute("srcvers", "220.68")
+            setAttribute("vv", "2")
+            setAttribute("pi", "b08f5a79-db29-4384-b456-a4784d9e6055")
+        }
+
+        nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+        nsdManager?.registerService(audioServiceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
+        nsdManager?.registerService(videoServiceInfo, NsdManager.PROTOCOL_DNS_SD, videoRegistrationListener)
+
+        Log.i(TAG, "Registering RAOP service: $instanceName on port $audioPort")
+        Log.i(TAG, "Registering AirPlay Video service: $customName on port $videoPort")
     }
 
     /**
@@ -105,6 +136,7 @@ class AirPlayServiceRegistrar(private val context: Context) {
         if (isRegistered) {
             try {
                 nsdManager?.unregisterService(registrationListener)
+                nsdManager?.unregisterService(videoRegistrationListener)
             } catch (e: Exception) {
                 Log.w(TAG, "Error unregistering service: ${e.message}")
             }
@@ -179,5 +211,13 @@ class AirPlayServiceRegistrar(private val context: Context) {
         val fallback = "F1BEEF${serialHash.toString(16).takeLast(6).uppercase()}"
         Log.w(TAG, "Using fallback MAC: $fallback")
         return fallback.padEnd(12, '0').take(12)
+    }
+
+    /**
+     * Gets MAC address formatted with colons for AirPlay Video TXT records
+     */
+    private fun getFormattedMacAddress(): String {
+        val mac = getMacAddress()
+        return mac.chunked(2).joinToString(":")
     }
 }

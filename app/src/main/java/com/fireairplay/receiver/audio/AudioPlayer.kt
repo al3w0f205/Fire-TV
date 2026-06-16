@@ -30,8 +30,8 @@ class AudioPlayer {
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_OUT_STEREO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
 
-        // Buffer capacity: ~100 frames of 352 stereo samples ≈ ~0.8 seconds of audio
-        private const val BUFFER_CAPACITY = 100
+        // Buffer capacity: 50 frames (~400ms). Absorbs Wi-Fi jitter but discards the 2s AirPlay burst for real low delay.
+        private const val BUFFER_CAPACITY = 50
     }
 
     private var audioTrack: AudioTrack? = null
@@ -39,6 +39,7 @@ class AudioPlayer {
     private val pcmChannel = Channel<ShortArray>(BUFFER_CAPACITY)
     private val isPlaying = AtomicBoolean(false)
     private val isPrimed = AtomicBoolean(false)
+    private val needsFadeIn = AtomicBoolean(false)
     private var scope: CoroutineScope? = null
 
     /**
@@ -47,14 +48,15 @@ class AudioPlayer {
      */
     fun initialize() {
         val minBufferSize = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-        // Use 4x minimum buffer or at least 65536 bytes for stability on TV platforms
-        val bufferSize = (minBufferSize * 4).coerceAtLeast(65536)
+        // Use 4x minimum buffer or at least 256KB for stability and buffering on TV platforms
+        val bufferSize = (minBufferSize * 4).coerceAtLeast(256 * 1024)
 
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setFlags(AudioAttributes.FLAG_LOW_LATENCY)
                     .build()
             )
             .setAudioFormat(
@@ -102,7 +104,7 @@ class AudioPlayer {
 
                     if (!isPrimed.get()) {
                         primedCount++
-                        if (primedCount >= 6) {
+                        if (primedCount >= 2) {
                             track.play()
                             isPrimed.set(true)
                             primedCount = 0
@@ -130,11 +132,39 @@ class AudioPlayer {
     suspend fun enqueuePcm(pcmSamples: ShortArray) {
         if (!isPlaying.get()) return
 
-        // Use trySend for non-blocking behavior; drop if buffer is full
-        val result = pcmChannel.trySend(pcmSamples)
-        if (result.isFailure) {
-            Log.w(TAG, "PCM buffer full, dropping frame")
+        var samplesToQueue = pcmSamples
+        if (needsFadeIn.getAndSet(false)) {
+            samplesToQueue = applyFadeIn(pcmSamples)
         }
+
+        // Use trySend to NEVER block the UDP receiver. If full, we drop a frame to maintain low delay.
+        val result = pcmChannel.trySend(samplesToQueue)
+        if (result.isFailure) {
+            needsFadeIn.set(true) // Ensure next frame fades in to avoid pop
+        }
+    }
+
+    /**
+     * Applies a quick fade-in to the frame to prevent audio pops after a gap.
+     */
+    private fun applyFadeIn(samples: ShortArray): ShortArray {
+        val out = samples.clone()
+        val fadeSamples = out.size / 2 // fade over half the frame
+        for (i in 0 until fadeSamples) {
+            val multiplier = i.toFloat() / fadeSamples
+            // Interleaved stereo: Left
+            out[i * 2] = (out[i * 2] * multiplier).toInt().toShort()
+            // Right
+            out[i * 2 + 1] = (out[i * 2 + 1] * multiplier).toInt().toShort()
+        }
+        return out
+    }
+
+    /**
+     * Notifies the player that a gap occurred in the network stream so it can fade in the next frame.
+     */
+    fun notifyGap() {
+        needsFadeIn.set(true)
     }
 
     /**
@@ -142,7 +172,16 @@ class AudioPlayer {
      */
     fun enqueuePcmBlocking(pcmSamples: ShortArray) {
         if (!isPlaying.get()) return
-        pcmChannel.trySend(pcmSamples)
+
+        var samplesToQueue = pcmSamples
+        if (needsFadeIn.getAndSet(false)) {
+            samplesToQueue = applyFadeIn(pcmSamples)
+        }
+
+        val result = pcmChannel.trySend(samplesToQueue)
+        if (result.isFailure) {
+            needsFadeIn.set(true)
+        }
     }
 
     /**
@@ -164,13 +203,21 @@ class AudioPlayer {
             if (result.isFailure) break
         }
 
-        // Flush the AudioTrack buffer
+        // Hard-flush: Pause and flush hardware buffer to eliminate old audio residue
         audioTrack?.let { track ->
-            track.pause()
-            track.flush()
+            try {
+                if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                    track.pause()
+                }
+                track.flush()
+                isPrimed.set(false)
+                needsFadeIn.set(true)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error flushing AudioTrack: ${e.message}")
+            }
         }
-        isPrimed.set(false)
-        Log.i(TAG, "Audio flushed")
+        
+        Log.i(TAG, "Audio flushed (hard)")
     }
 
     /**

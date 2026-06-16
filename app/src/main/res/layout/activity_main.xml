@@ -196,7 +196,10 @@
                     android:shadowColor="#80000000"
                     android:shadowDx="0"
                     android:shadowDy="2"
-                    android:shadowRadius="5" />
+                    android:shadowRadius="5"
+                    android:breakStrategy="balanced"
+                    android:hyphenationFrequency="none"
+                    tools:targetApi="m" />
 
                 <!-- Artist name -->
                 <TextView
@@ -372,7 +375,12 @@
                 android:textAllCaps="true"
                 android:shadowColor="#80000000"
                 android:shadowRadius="3"
-                android:text="Song Title" />
+                android:text="Song Title"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:breakStrategy="balanced"
+                android:hyphenationFrequency="none"
+                tools:targetApi="m" />
 
             <!-- Floating translucent artist -->
             <TextView
